@@ -10,18 +10,22 @@
 </head>
 <body class="container py-5">
     <h2 class="text-center mb-4">Teachable Machine Image Model</h2>
-    
+
     <div class="row justify-content-center">
         <div class="col-md-6 text-center">
             <div id="webcam-container"></div>
+            <input type="file" id="image-upload" accept="image/*" class="form-control my-3" onchange="handleImageUpload(event)" />
+            <button id="camera-btn" class="btn btn-primary" onclick="startCamera()">Start Camera</button>
+            <button id="upload-btn" class="btn btn-secondary" onclick="useUploadedImage()" disabled>Use Uploaded Image</button>
         </div>
     </div>
-    
+
     <div class="mt-3 text-center" id="label-container"></div>
     
     <script>
-        const URL = "https://kelwilliam.vercel.app/";
+        const URL = "http://localhost/mainjs/";
         let model, webcam, labelContainer, maxPredictions;
+        let uploadedImage = null;
 
         async function init() {
             const modelURL = URL + "model.json";
@@ -34,8 +38,6 @@
             for (let i = 0; i < maxPredictions; i++) {
                 labelContainer.appendChild(document.createElement("div"));
             }
-            
-            startCamera();
         }
 
         async function startCamera() {
@@ -45,12 +47,17 @@
             await webcam.play();
             window.requestAnimationFrame(loop);
             
+            document.getElementById("webcam-container").innerHTML = ''; // Clear previous content
             document.getElementById("webcam-container").appendChild(webcam.canvas);
+            document.getElementById("camera-btn").disabled = true; // Disable camera button
+            document.getElementById("upload-btn").disabled = false; // Enable upload button
         }
 
         async function loop() {
-            webcam.update();
-            await predict(webcam.canvas);
+            if (!uploadedImage) {
+                webcam.update();
+                await predict(webcam.canvas);
+            }
             window.requestAnimationFrame(loop);
         }
 
@@ -64,7 +71,43 @@
                 labelContainer.appendChild(div);
             }
         }
-        
+
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    uploadedImage = new Image();
+                    uploadedImage.src = e.target.result;
+                    uploadedImage.onload = () => {
+                        document.getElementById("webcam-container").innerHTML = ''; // Clear webcam
+                        const canvas = document.createElement("canvas");
+                        const ctx = canvas.getContext("2d");
+                        canvas.width = uploadedImage.width;
+                        canvas.height = uploadedImage.height;
+                        ctx.drawImage(uploadedImage, 0, 0, canvas.width, canvas.height);
+                        document.getElementById("webcam-container").appendChild(canvas);
+                        document.getElementById("upload-btn").disabled = true; // Disable upload button after image is used
+                        predict(canvas);
+                    };
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function useUploadedImage() {
+            if (uploadedImage) {
+                const canvas = document.createElement("canvas");
+                const ctx = canvas.getContext("2d");
+                canvas.width = uploadedImage.width;
+                canvas.height = uploadedImage.height;
+                ctx.drawImage(uploadedImage, 0, 0, canvas.width, canvas.height);
+                document.getElementById("webcam-container").innerHTML = ''; // Clear previous content
+                document.getElementById("webcam-container").appendChild(canvas);
+                predict(canvas);
+            }
+        }
+
         window.onload = init;
     </script>
 </body>
